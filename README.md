@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/Fabricks.svg" alt="Fabricks: Data + AI + Impact, Azure Gov" width="260">
+  <img src="images/Fabricks.png" alt="Fabricks: Data + AI + Impact, Azure Gov" width="260">
 </p>
 
 # Databricks + Microsoft Fabric + Azure AI Foundry on Azure Government
