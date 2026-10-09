@@ -3,3 +3,7 @@ __pycache__/
 *.py[cod]
 .env
 samples/
+
+# Windows download metadata
+*:Zone.Identifier
+*:sec.endpointdlp

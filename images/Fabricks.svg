@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
+<title>Fabricks vector logo</title><desc>Vector logo inspired by the Fabricks concept: Fabric-style ribbon, lakehouse stack, AI arc and chatbot, Azure Government cloud, Fabricks wordmark.</desc>
+<defs>
+ <linearGradient id="fabric" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#64e8be"/><stop offset=".5" stop-color="#13b98c"/><stop offset="1" stop-color="#00665e"/></linearGradient>
+ <linearGradient id="ai" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#10b7f4"/><stop offset=".5" stop-color="#1263e8"/><stop offset="1" stop-color="#8a1ab5"/></linearGradient>
+ <linearGradient id="bricks" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#ff3b22"/><stop offset="1" stop-color="#df2918"/></linearGradient>
+ <linearGradient id="word" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#005e5e"/><stop offset=".42" stop-color="#006153"/><stop offset=".44" stop-color="#ef321f"/><stop offset="1" stop-color="#e42b19"/></linearGradient>
+ <linearGradient id="cloud" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#eef8ff"/></linearGradient>
+</defs>
+<!-- cloud -->
+<path d="M235 505C150 505 115 444 129 381c13-61 66-98 127-93 11-94 90-160 185-154 40-65 111-104 190-97 106 9 183 90 187 193 88-11 165 47 175 132 80 0 139 52 135 122-4 66-57 111-129 111H258c-78 0-128-35-138-90-10-55 30-100 115-100" transform="translate(0 50)" fill="url(#cloud)" stroke="#b8e5fb" stroke-width="20"/>
+<!-- government dome icon -->
+<g fill="#073b80"><rect x="551" y="191" width="98" height="13" rx="6"/><path d="M565 184v-29h70v29zm8-38c4-29 20-45 27-45s23 16 27 45z"/><rect x="579" y="203" width="10" height="42"/><rect x="596" y="203" width="10" height="42"/><rect x="613" y="203" width="10" height="42"/><rect x="563" y="245" width="74" height="12" rx="4"/><rect x="596" y="78" width="8" height="26" rx="4"/></g>
+<text x="600" y="300" text-anchor="middle" font-family="Arial,sans-serif" font-size="41" font-weight="700" letter-spacing="5" fill="#073b80">AZURE GOV</text>
+<!-- fabric ribbon abstraction -->
+<g fill="url(#fabric)"><path d="M74 472q3-29 30-35l270-43q22-4 31 10 7 10 2 26l-18 60q-4 16-21 18l-292 46z"/><path d="M77 537l310-42q20-2 28 13 7 15-5 30l-60 78q-10 13-26 15L83 663q-28 4-25-24z"/></g>
+<path d="M342 551c73-14 110-13 148 5 44 21 70 70 118 65" fill="none" stroke="#10b98e" stroke-width="38" stroke-linecap="round"/><circle cx="420" cy="555" r="17" fill="#fff" stroke="#10b98e" stroke-width="8"/>
+<!-- AI foundry style ribbon -->
+<path d="M606 621c55 0 73-39 117-62 40-21 76-21 115-12" fill="none" stroke="url(#ai)" stroke-width="38" stroke-linecap="round"/><path d="M818 643l74-221q7-22 26-22h64q20 0 28 23l68 216h-67l-49-163-52 167z" fill="url(#ai)"/><path d="M931 409q28 0 42 30l38 92q7 17 27 17h41v58h-72q-38 0-55-38l-31-70z" fill="#2862e9" opacity=".95"/><circle cx="790" cy="557" r="17" fill="#fff" stroke="#1263e8" stroke-width="8"/>
+<!-- delta/lakehouse stack -->
+<g fill="none" stroke="url(#bricks)" stroke-width="22" stroke-linejoin="round"><path d="M477 462l126-71 126 71-126 69z"/><path d="M477 538l126 70 126-70"/><path d="M477 608l126 69 126-69"/></g>
+<!-- chatbot -->
+<g stroke="#073b80" stroke-width="11" fill="#f4fbff"><path d="M1005 537h124q24 0 24 24v91q0 24-24 24h-58l-34 31 5-31h-37q-24 0-24-24v-91q0-24 24-24z"/><rect x="1017" y="566" width="99" height="67" rx="29"/><circle cx="1049" cy="600" r="7" fill="#073b80"/><circle cx="1085" cy="600" r="7" fill="#073b80"/><path d="M1067 566v-19"/><circle cx="1067" cy="543" r="5" fill="#073b80"/></g>
+<!-- AI sparkles -->
+<g fill="#6453ff"><path d="M1131 437l8 17 17 8-17 8-8 17-8-17-17-8 17-8z"/><path d="M1086 473l6 13 13 6-13 6-6 13-6-13-13-6 13-6z"/></g>
+<!-- wordmark -->
+<text x="600" y="865" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="166" font-weight="900" letter-spacing="-9" fill="url(#word)">Fabricks</text>
+<text x="600" y="938" text-anchor="middle" font-family="Arial,sans-serif" font-size="43" font-weight="700" letter-spacing="16" fill="#073b80">DATA + AI + IMPACT</text>
+<path d="M64 1008h126M1010 1008h126" stroke="#7891b5" stroke-width="4"/>
+<text x="600" y="1021" text-anchor="middle" font-family="Arial,sans-serif" font-size="27" letter-spacing="7" fill="#7891b5">BUILT FOR A MORE SECURE TOMORROW</text>
+</svg>
