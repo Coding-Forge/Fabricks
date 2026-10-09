@@ -1,4 +1,4 @@
-"""Local chat app: asks questions of call records and the Databricks-written Sales table, both read through Lakehouse shortcuts.
+"""Local chat app: asks questions of the lakehouse's Silver/Gold call-quality tables and the Databricks-written Sales table, read from OneLake.
 
 Required environment variables (nothing is hard coded; set them in your shell profile, never in the repo):
   FABRIC_TENANT_ID, FABRIC_CLIENT_ID     service principal with access to the Fabric workspace
@@ -6,7 +6,7 @@ Required environment variables (nothing is hard coded; set them in your shell pr
   FABRIC_WORKSPACE, FABRIC_LAKEHOUSE     workspace and lakehouse names that hold the shortcuts
   ONELAKE_HOST                           OneLake DFS host for your cloud, for example <prefix>-onelake.dfs.fabric.microsoft.us
   AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY
-Optional: AZURE_OPENAI_DEPLOYMENT (gpt-4o), SALES_TABLE (dbo/sales), CHAT_PORT (8000), CHAT_REFRESH_SECONDS (300)
+Optional: AZURE_OPENAI_DEPLOYMENT (gpt-4o), SALES_TABLE (dbo/sales), LAKEHOUSE_SCHEMA (dbo), CHAT_PORT (8000), CHAT_REFRESH_SECONDS (300)
 
 Run: python -m chat.server            (serves http://127.0.0.1:8000)
      python -m chat.server --check    (reads the shortcut and prints what it found; no model needed)
@@ -61,6 +61,7 @@ def build_source():
         tenant,
         source.make_credential(tenant, client, secret),
         sales_table=os.getenv("SALES_TABLE", "dbo/sales"),
+        schema=os.getenv("LAKEHOUSE_SCHEMA", "dbo"),
     )
 
 
@@ -122,6 +123,8 @@ def main():
         print(json.dumps({k: v for k, v in provenance.items() if k != "files"}, indent=2))
         for item in provenance["files"][:3]:
             print("read:", item["path"])
+        for table in provenance["tables"]:
+            print(f'{table["name"]}: {table["rows"]} rows (Delta v{table["version"]}) {table["error"] or ""}')
         return
     from openai import AzureOpenAI
 

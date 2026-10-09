@@ -8,7 +8,7 @@ from chat import engine, source
 
 TENANT = "00000000-0000-0000-0000-000000000001"
 CALL = "79e78d95-e6d0-4b25-80b3-5e757508fca6"
-PROV = {"calls_listed": 2, "calls_read": 2, "stream_metric_coverage": 1.0, "files": []}
+PROV = {"tables_listed": 2, "tables_read": 2, "stream_metric_coverage": 1.0, "files": []}
 
 
 class FakeResponse:
@@ -23,33 +23,22 @@ class FakeResponse:
             raise source.requests.HTTPError(str(self.status_code))
 
 
-class FakeSession:
-    def __init__(self, listing_pages, files):
-        self.pages, self.files, self.urls = list(listing_pages), files, []
+class DeltaSession:
+    """Serves Delta tables: {table root: {"commits": {name: text}, "parquet": {file: bytes}}}; listing by directory."""
 
-    def get(self, url, params=None, **kwargs):
-        self.urls.append((url, params))
-        if params:
-            return self.pages.pop(0)
-        return FakeResponse(self.files[url.split("/CQD/")[1]])
-
-
-class SalesSession:
-    """Serves a Delta table: commit 0 adds part-0, commit 1 removes it and adds part-1 and part-2."""
-
-    def __init__(self, parquet, commits=None, with_checkpoint_gap=False):
-        root = "cqd_lh.Lakehouse/Tables/dbo/sales"
-        self.root = root
-        names = ["00000000000000000000.json", "00000000000000000001.json"]
-        if with_checkpoint_gap:
-            names = names[1:]
-        self.listing = [{"name": f"{root}/_delta_log/{n}"} for n in names]
-        self.files = dict(parquet)
-        self.files.update({f"{root}/_delta_log/{n}": c.encode() for n, c in (commits or {}).items()})
+    def __init__(self, tables, extra_dirs=()):
+        self.files, self.dirs = {}, {}
+        for root, spec in tables.items():
+            log = f"{root}/_delta_log"
+            self.dirs[log] = [{"name": f"{log}/{n}"} for n in spec["commits"]]
+            self.files.update({f"{log}/{n}": c.encode() for n, c in spec["commits"].items()})
+            self.files.update({f"{root}/{n}": b for n, b in spec["parquet"].items()})
+        for parent, names in extra_dirs:
+            self.dirs[parent] = [{"name": f"{parent}/{n}", "isDirectory": "true"} for n in names]
 
     def get(self, url, params=None, **kwargs):
         if params:
-            return FakeResponse({"paths": self.listing})
+            return FakeResponse({"paths": self.dirs.get(params["directory"], [])})
         response = FakeResponse(None)
         response.content = self.files[url.split("/CQD/")[1]]
         return response
@@ -58,29 +47,6 @@ class SalesSession:
 class FakeCredential:
     def get_token(self, scope):
         return SimpleNamespace(token="t")
-
-
-def record(version):
-    return {"ingested_at": "2026-10-09T00:00:00+00:00", "record": {
-        "id": CALL, "version": version, "type": "groupCall", "modalities": ["audio"],
-        "startDateTime": "2026-10-09T10:00:00Z", "endDateTime": "2026-10-09T10:05:00Z",
-        "participants_v2": [], "sessions": []}}
-
-
-class SourceTests(unittest.TestCase):
-    def test_reads_latest_version_through_shortcut_path(self):
-        root = f"cqd_lh.Lakehouse/Files/bronze/callrecords/{TENANT}/{CALL}"
-        pages = [
-            FakeResponse({"paths": [{"name": f"{root}/version=1.json"}]}, {"x-ms-continuation": "n"}),
-            FakeResponse({"paths": [{"name": f"{root}/version=2.json"}, {"name": root, "isDirectory": "true"}]}),
-        ]
-        session = FakeSession(pages, {f"{root}/version=2.json": record(2)})
-        src = source.ShortcutSource("onelake.example", "CQD", "cqd_lh", TENANT, FakeCredential(), session)
-        conn, prov = source.load(src, include_sales=False)
-        self.assertEqual(prov["files"][0]["version"], 2)
-        self.assertIn("Files/bronze/callrecords", prov["shortcut_path"])
-        self.assertEqual(conn.execute('SELECT Version FROM "Calls"').fetchone()[0], 2)
-        self.assertEqual(session.urls[1][1]["continuation"], "n")
 
 
 def parquet_bytes(rows):
@@ -92,36 +58,63 @@ def parquet_bytes(rows):
     return sink.getvalue()
 
 
+LH = "cqd_lh.Lakehouse/Tables/dbo"
+
+
+def commit(*actions):
+    return "\n".join(json.dumps(a) for a in actions)
+
+
 class SalesTests(unittest.TestCase):
     def source(self, session):
         return source.ShortcutSource("onelake.example", "CQD", "cqd_lh", TENANT, FakeCredential(), session)
 
-    def session(self, **kwargs):
-        root = "cqd_lh.Lakehouse/Tables/dbo/sales"
+    def session(self, with_checkpoint_gap=False):
         commits = {
-            "00000000000000000000.json": json.dumps({"add": {"path": "part-0.parquet"}}) + "\n",
-            "00000000000000000001.json": json.dumps({"remove": {"path": "part-0.parquet"}}) + "\n"
-            + json.dumps({"add": {"path": "part%2D1.parquet"}}) + "\n" + json.dumps({"add": {"path": "part-2.parquet"}}),
+            "00000000000000000000.json": commit({"add": {"path": "part-0.parquet"}}),
+            "00000000000000000001.json": commit({"remove": {"path": "part-0.parquet"}},
+                                                {"add": {"path": "part%2D1.parquet"}}, {"add": {"path": "part-2.parquet"}}),
         }
+        if with_checkpoint_gap:
+            del commits["00000000000000000000.json"]
         parquet = {
-            f"{root}/part-0.parquet": parquet_bytes([{"id": 99, "region": 9, "amount": 0.9}]),
-            f"{root}/part-1.parquet": parquet_bytes([{"id": 1, "region": 0, "amount": 0.25}]),
-            f"{root}/part-2.parquet": parquet_bytes([{"id": 2, "region": 1, "amount": 0.5}]),
+            "part-0.parquet": parquet_bytes([{"id": 99, "region": 9, "amount": 0.9}]),
+            "part-1.parquet": parquet_bytes([{"id": 1, "region": 0, "amount": 0.25}]),
+            "part-2.parquet": parquet_bytes([{"id": 2, "region": 1, "amount": 0.5}]),
         }
-        return SalesSession(parquet, commits, **kwargs)
+        return DeltaSession({f"{LH}/sales": {"commits": commits, "parquet": parquet}})
 
     def test_replays_delta_log_and_loads_only_active_files(self):
-        conn, prov = source.load(self.source(self.session()), flatten=lambda snaps: {}, max_calls=0)
+        conn, prov = source.load(self.source(self.session()))
         self.assertEqual(conn.execute('SELECT id FROM "Sales" ORDER BY id').fetchall(), [(1,), (2,)])
         self.assertEqual((prov["sales_rows"], prov["sales_version"], prov["sales_error"]), (2, 1, None))
         self.assertEqual(len(prov["sales_files"]), 2)
 
     def test_incomplete_log_is_reported_not_fatal(self):
-        conn, prov = source.load(self.source(self.session(with_checkpoint_gap=True)),
-                                 flatten=lambda snaps: {}, max_calls=0)
+        conn, prov = source.load(self.source(self.session(with_checkpoint_gap=True)))
         self.assertIn("checkpointed", prov["sales_error"])
         self.assertEqual(prov["sales_rows"], 0)
         self.assertIsNone(conn.execute("SELECT name FROM sqlite_master WHERE name='Sales'").fetchone())
+
+
+class LayerTests(unittest.TestCase):
+    def test_loads_only_silver_and_gold_tables_not_bronze_files(self):
+        def table(rows):
+            return {"commits": {"00000000000000000000.json": commit({"add": {"path": "p.parquet"}})},
+                    "parquet": {"p.parquet": parquet_bytes(rows)}}
+
+        session = DeltaSession(
+            {f"{LH}/silver_mediastreams": table([{"CallId": "a", "AvgJitterMs": 4.0}, {"CallId": "b", "AvgJitterMs": None}]),
+             f"{LH}/gold_call_summary": table([{"CallId": "a", "AvgJitterMs": 4.0}]),
+             f"{LH}/silver_broken": {"commits": {}, "parquet": {}}},
+            extra_dirs=[(LH, ["sales", "silver_mediastreams", "gold_call_summary", "silver_broken", "other"])])
+        src = source.ShortcutSource("onelake.example", "CQD", "cqd_lh", TENANT, FakeCredential(), session)
+        conn, prov = source.load(src, include_sales=False)
+        names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master")}
+        self.assertEqual(names, {"silver_mediastreams", "gold_call_summary"})
+        self.assertEqual(prov["tables_listed"], 3)
+        self.assertEqual(prov["stream_metric_coverage"], 0.5)
+        self.assertTrue(all("Files/bronze" not in f["path"] for f in prov["files"]))
 
 
 class EngineTests(unittest.TestCase):

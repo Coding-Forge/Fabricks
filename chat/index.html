@@ -89,7 +89,7 @@ for (const text of EXAMPLES) {
 
 function sourceLine(src) {
   const sales = src.sales_error ? `sales unavailable (${src.sales_error})` : `${src.sales_rows} sales rows (Delta v${src.sales_version})`;
-  return `Source: ${src.shortcut_path} — ${src.calls_read} of ${src.calls_listed} calls read; ${sales}; loaded ${src.loaded_at}`;
+  return `Source: ${src.shortcut_path} — ${src.tables_read} of ${src.tables_listed} Silver/Gold tables read; ${sales}; loaded ${src.loaded_at}`;
 }
 
 function render(question, data) {
@@ -132,9 +132,9 @@ function render(question, data) {
   card.appendChild(sql);
 
   const src = el("details");
-  src.appendChild(el("summary", `Source files read through the shortcut (${data.source.files_read.length})`));
+  src.appendChild(el("summary", `Delta files read from the lakehouse (${data.source.files_read.length})`));
   src.appendChild(el("div", sourceLine(data.source), "muted"));
-  src.appendChild(el("pre", data.source.files_read.map(f => `${f.path}  (v${f.version})`).join("\n")));
+  src.appendChild(el("pre", data.source.files_read.map(f => `${f.path}  (Delta v${f.version})`).join("\n")));
   card.appendChild(src);
 
   log.prepend(card);

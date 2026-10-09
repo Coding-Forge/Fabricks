@@ -12,7 +12,7 @@ TOOL = [{
     "type": "function",
     "function": {
         "name": "run_sql",
-        "description": "Run one read-only SQLite SELECT over the call-quality and Sales tables.",
+        "description": "Run one read-only SQLite SELECT over the Silver, Gold and Sales tables.",
         "parameters": {
             "type": "object",
             "properties": {"sql": {"type": "string", "description": "A single SQLite SELECT statement."}},
@@ -32,12 +32,16 @@ def schema_text(conn):
 
 def system_prompt(conn):
     return (
-        "You answer questions about two datasets by calling run_sql: Microsoft Teams call-quality records and "
-        "a Sales table (written by Databricks, read through a Fabric Delta shortcut).\n"
+        "You answer questions about two datasets by calling run_sql: Microsoft Teams call-quality data from the "
+        "Fabric lakehouse's curated Silver and Gold layers, and a Sales table (written by Databricks, read through a "
+        "Fabric Delta shortcut).\n"
         "Tables (SQLite dialect, SELECT only):\n" + schema_text(conn) + "\n"
-        "Notes: CallId joins Calls, Sessions and Participants; SessionId joins Sessions, Segments and MediaStreams. "
-        "Jitter and round-trip values are milliseconds; packet loss is a ratio. Many streams have NULL metrics because "
-        "Teams did not report them; say so when it affects an answer. Users are pseudonymous hashes. "
+        "Notes: gold_* tables are curated aggregates; prefer them when they answer the question (gold_call_summary has "
+        "one row per call, gold_stream_quality one row per media stream with a StreamQuality label). Use silver_* tables "
+        "for detail the gold tables lack. CallId joins all call tables; SessionId joins silver_sessions, silver_segments "
+        "and the stream tables. Jitter and round-trip values are milliseconds; packet loss and concealed ratios are "
+        "ratios. Some streams have NULL metrics because Teams did not report them; say so when it affects an answer. "
+        "Users are pseudonymous hashes. "
         "Sales(id, region, amount) is synthetic sample data: region is 0-9 and amount is a number between 0 and 1 "
         "with no currency; it is unrelated to the call tables, so never join them. "
         "State only numbers that appear in query results. If the data cannot answer the question, say so."
@@ -98,8 +102,8 @@ def score(answer, results, provenance):
         grounding = 0.7 if with_rows else 0.0
 
     completeness = 1.0
-    if provenance["calls_listed"] and provenance["calls_read"] < provenance["calls_listed"]:
-        completeness *= provenance["calls_read"] / provenance["calls_listed"]
+    if provenance["tables_listed"] and provenance["tables_read"] < provenance["tables_listed"]:
+        completeness *= provenance["tables_read"] / provenance["tables_listed"]
     if any(METRIC_REFERENCE.search(r["sql"]) for r in results):
         completeness *= max(provenance["stream_metric_coverage"], 0.1)
 
