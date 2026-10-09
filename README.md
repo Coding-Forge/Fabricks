@@ -2,6 +2,8 @@
 
 **Proof-of-Concept Working Document** — DRAFT for customer review
 
+> **Want to run it?** See [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) and [.env.example](.env.example).
+
 ## 1. Objective
 
 Show that a team can:
