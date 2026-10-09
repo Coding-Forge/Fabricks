@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CQD Q&amp;A</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 0; background: #f4f5f7; color: #1b1b1b; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #555; margin-bottom: 16px; }
+  form { display: flex; gap: 8px; }
+  input { flex: 1; padding: 10px 12px; font: inherit; border: 1px solid #b8bcc4; border-radius: 6px; }
+  button { padding: 10px 16px; font: inherit; border: 0; border-radius: 6px; background: #0f6cbd; color: #fff; cursor: pointer; }
+  button:disabled { background: #8fb4d9; cursor: wait; }
+  .card { background: #fff; border: 1px solid #dcdfe4; border-radius: 8px; padding: 14px 16px; margin-top: 16px; }
+  .q { font-weight: 600; margin-bottom: 8px; }
+  .answer { white-space: pre-wrap; }
+  .score { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+  .bar { flex: 0 0 160px; height: 10px; background: #e6e8ec; border-radius: 5px; overflow: hidden; }
+  .fill { height: 100%; }
+  .High .fill { background: #107c10; } .Medium .fill { background: #c19c00; } .Low .fill { background: #c50f1f; }
+  .badge { font-weight: 600; }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: #0f6cbd; }
+  pre, code { font: 13px/1.4 ui-monospace, monospace; }
+  pre { background: #f4f5f7; padding: 8px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; margin: 6px 0; }
+  .muted { color: #666; font-size: 13px; }
+  .err { color: #c50f1f; }
+</style>
+</head>
+<body>
+<main>
+  <h1>CQD call-quality Q&amp;A</h1>
+  <div class="sub" id="source">Source: loading…</div>
+  <form id="form">
+    <input id="question" maxlength="500" placeholder="e.g. Which platform has the highest average jitter?" autocomplete="off" required>
+    <button id="ask" type="submit">Ask</button>
+    <button id="refresh" type="button" title="Reload from the shortcut">Refresh</button>
+  </form>
+  <div id="log"></div>
+</main>
+<script>
+const log = document.getElementById("log");
+const form = document.getElementById("form");
+const input = document.getElementById("question");
+const askButton = document.getElementById("ask");
+
+function el(tag, text, cls) {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  if (cls) node.className = cls;
+  return node;
+}
+
+function sourceLine(src) {
+  return `Source: ${src.shortcut_path} — ${src.calls_read} of ${src.calls_listed} calls read, loaded ${src.loaded_at}`;
+}
+
+function render(question, data) {
+  const card = el("div", undefined, "card");
+  card.appendChild(el("div", question, "q"));
+  if (data.error) {
+    card.appendChild(el("div", data.error, "err"));
+    log.prepend(card);
+    return;
+  }
+  card.appendChild(el("div", data.answer, "answer"));
+
+  const s = data.score;
+  const score = el("div", undefined, `score ${s.band}`);
+  const bar = el("div", undefined, "bar");
+  const fill = el("div", undefined, "fill");
+  fill.style.width = `${s.value}%`;
+  bar.appendChild(fill);
+  score.append(bar, el("span", `${s.value}/100 ${s.band} confidence`, "badge"));
+  card.appendChild(score);
+  card.appendChild(el("div", s.note, "muted"));
+
+  const how = el("details");
+  how.appendChild(el("summary", "How the score was calculated"));
+  const parts = s.components;
+  how.appendChild(el("pre", [
+    `Query success (25%):                ${parts.query_success}`,
+    `Answer numbers found in results (45%): ${parts.answer_grounded_in_results}`,
+    `Source completeness (30%):          ${parts.source_completeness}`,
+  ].join("\n")));
+  card.appendChild(how);
+
+  const sql = el("details");
+  sql.appendChild(el("summary", `Queries run (${data.queries.length})`));
+  data.queries.forEach(q => {
+    sql.appendChild(el("pre", q.sql || "(none)"));
+    const meta = q.error ? q.error : `${q.row_count} row(s)${q.truncated ? ", truncated" : ""}`;
+    sql.appendChild(el("div", meta, q.error ? "err muted" : "muted"));
+  });
+  card.appendChild(sql);
+
+  const src = el("details");
+  src.appendChild(el("summary", `Source files read through the shortcut (${data.source.files_read.length})`));
+  src.appendChild(el("div", sourceLine(data.source), "muted"));
+  src.appendChild(el("pre", data.source.files_read.map(f => `${f.path}  (v${f.version})`).join("\n")));
+  card.appendChild(src);
+
+  log.prepend(card);
+  document.getElementById("source").textContent = sourceLine(data.source);
+}
+
+async function post(path, body) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return response.json();
+}
+
+form.addEventListener("submit", async event => {
+  event.preventDefault();
+  const question = input.value.trim();
+  if (!question) return;
+  askButton.disabled = true;
+  try {
+    render(question, await post("/api/ask", { question }));
+    input.value = "";
+  } catch (error) {
+    render(question, { error: "Request failed. Check that the server is running." });
+  } finally {
+    askButton.disabled = false;
+  }
+});
+
+document.getElementById("refresh").addEventListener("click", async () => {
+  const src = await post("/api/refresh", {});
+  document.getElementById("source").textContent = src.error || sourceLine(src);
+});
+
+post("/api/refresh", {}).then(src => {
+  document.getElementById("source").textContent = src.error || sourceLine(src);
+});
+</script>
+</body>
+</html>
