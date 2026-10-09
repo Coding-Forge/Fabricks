@@ -54,7 +54,8 @@ function el(tag, text, cls) {
 }
 
 function sourceLine(src) {
-  return `Source: ${src.shortcut_path} — ${src.calls_read} of ${src.calls_listed} calls read, loaded ${src.loaded_at}`;
+  const sales = src.sales_error ? `sales unavailable (${src.sales_error})` : `${src.sales_rows} sales rows (Delta v${src.sales_version})`;
+  return `Source: ${src.shortcut_path} — ${src.calls_read} of ${src.calls_listed} calls read; ${sales}; loaded ${src.loaded_at}`;
 }
 
 function render(question, data) {

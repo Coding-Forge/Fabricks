@@ -1,3 +1,4 @@
+import io
 import json
 import sqlite3
 import unittest
@@ -5,7 +6,7 @@ from types import SimpleNamespace
 
 from chat import engine, source
 
-TENANT = "2be9ade8-01e0-4553-8639-e549bb72dbd5"
+TENANT = "00000000-0000-0000-0000-000000000001"
 CALL = "79e78d95-e6d0-4b25-80b3-5e757508fca6"
 PROV = {"calls_listed": 2, "calls_read": 2, "stream_metric_coverage": 1.0, "files": []}
 
@@ -33,6 +34,27 @@ class FakeSession:
         return FakeResponse(self.files[url.split("/CQD/")[1]])
 
 
+class SalesSession:
+    """Serves a Delta table: commit 0 adds part-0, commit 1 removes it and adds part-1 and part-2."""
+
+    def __init__(self, parquet, commits=None, with_checkpoint_gap=False):
+        root = "cqd_lh.Lakehouse/Tables/dbo/sales"
+        self.root = root
+        names = ["00000000000000000000.json", "00000000000000000001.json"]
+        if with_checkpoint_gap:
+            names = names[1:]
+        self.listing = [{"name": f"{root}/_delta_log/{n}"} for n in names]
+        self.files = dict(parquet)
+        self.files.update({f"{root}/_delta_log/{n}": c.encode() for n, c in (commits or {}).items()})
+
+    def get(self, url, params=None, **kwargs):
+        if params:
+            return FakeResponse({"paths": self.listing})
+        response = FakeResponse(None)
+        response.content = self.files[url.split("/CQD/")[1]]
+        return response
+
+
 class FakeCredential:
     def get_token(self, scope):
         return SimpleNamespace(token="t")
@@ -54,11 +76,52 @@ class SourceTests(unittest.TestCase):
         ]
         session = FakeSession(pages, {f"{root}/version=2.json": record(2)})
         src = source.ShortcutSource("onelake.example", "CQD", "cqd_lh", TENANT, FakeCredential(), session)
-        conn, prov = source.load(src)
+        conn, prov = source.load(src, include_sales=False)
         self.assertEqual(prov["files"][0]["version"], 2)
         self.assertIn("Files/bronze/callrecords", prov["shortcut_path"])
         self.assertEqual(conn.execute('SELECT Version FROM "Calls"').fetchone()[0], 2)
         self.assertEqual(session.urls[1][1]["continuation"], "n")
+
+
+def parquet_bytes(rows):
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    sink = io.BytesIO()
+    pq.write_table(pa.Table.from_pylist(rows), sink)
+    return sink.getvalue()
+
+
+class SalesTests(unittest.TestCase):
+    def source(self, session):
+        return source.ShortcutSource("onelake.example", "CQD", "cqd_lh", TENANT, FakeCredential(), session)
+
+    def session(self, **kwargs):
+        root = "cqd_lh.Lakehouse/Tables/dbo/sales"
+        commits = {
+            "00000000000000000000.json": json.dumps({"add": {"path": "part-0.parquet"}}) + "\n",
+            "00000000000000000001.json": json.dumps({"remove": {"path": "part-0.parquet"}}) + "\n"
+            + json.dumps({"add": {"path": "part%2D1.parquet"}}) + "\n" + json.dumps({"add": {"path": "part-2.parquet"}}),
+        }
+        parquet = {
+            f"{root}/part-0.parquet": parquet_bytes([{"id": 99, "region": 9, "amount": 0.9}]),
+            f"{root}/part-1.parquet": parquet_bytes([{"id": 1, "region": 0, "amount": 0.25}]),
+            f"{root}/part-2.parquet": parquet_bytes([{"id": 2, "region": 1, "amount": 0.5}]),
+        }
+        return SalesSession(parquet, commits, **kwargs)
+
+    def test_replays_delta_log_and_loads_only_active_files(self):
+        conn, prov = source.load(self.source(self.session()), flatten=lambda snaps: {}, max_calls=0)
+        self.assertEqual(conn.execute('SELECT id FROM "Sales" ORDER BY id').fetchall(), [(1,), (2,)])
+        self.assertEqual((prov["sales_rows"], prov["sales_version"], prov["sales_error"]), (2, 1, None))
+        self.assertEqual(len(prov["sales_files"]), 2)
+
+    def test_incomplete_log_is_reported_not_fatal(self):
+        conn, prov = source.load(self.source(self.session(with_checkpoint_gap=True)),
+                                 flatten=lambda snaps: {}, max_calls=0)
+        self.assertIn("checkpointed", prov["sales_error"])
+        self.assertEqual(prov["sales_rows"], 0)
+        self.assertIsNone(conn.execute("SELECT name FROM sqlite_master WHERE name='Sales'").fetchone())
 
 
 class EngineTests(unittest.TestCase):

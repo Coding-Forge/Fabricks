@@ -1,10 +1,12 @@
 """Gov fallback agent: Azure OpenAI function calling over the Fabric lakehouse SQL endpoint.
 
 Required environment variables:
-  AZURE_OPENAI_API_KEY   key for the gpt-4o deployment (store in Key Vault, do not commit)
+  AZURE_OPENAI_ENDPOINT   Azure OpenAI endpoint URL
+  AZURE_OPENAI_API_KEY    key for the gpt-4o deployment (store in Key Vault, do not commit)
   FABRIC_TENANT_ID, FABRIC_CLIENT_ID, FABRIC_CLIENT_SECRET   service principal with workspace access
+  FABRIC_SQL_SERVER, FABRIC_DATABASE   Fabric SQL analytics endpoint host and lakehouse name
 Optional:
-  AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT, FABRIC_SQL_SERVER, FABRIC_DATABASE, FABRIC_SQL_SCOPE
+  AZURE_OPENAI_DEPLOYMENT, FABRIC_SQL_SCOPE
 """
 import json
 import os
@@ -16,13 +18,10 @@ import pyodbc
 from azure.identity import AzureAuthorityHosts, ClientSecretCredential
 from openai import AzureOpenAI
 
-OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "https://forgeworksai4011316711.openai.azure.us/")
+OPENAI_ENDPOINT = os.environ["AZURE_OPENAI_ENDPOINT"]
 DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
-SQL_SERVER = os.getenv(
-    "FABRIC_SQL_SERVER",
-    "5cw6sk7aafjulbrz4ve3w4w32u-ozehk7ijsapurnsykx624ylpo4.high-datawarehouse.fabric.microsoft.us",
-)
-DATABASE = os.getenv("FABRIC_DATABASE", "cqd_lh")
+SQL_SERVER = os.environ["FABRIC_SQL_SERVER"]
+DATABASE = os.environ["FABRIC_DATABASE"]
 # Token audience for the Fabric Gov SQL endpoint; verify against current docs if auth fails.
 SQL_SCOPE = os.getenv("FABRIC_SQL_SCOPE", "https://database.usgovcloudapi.net/.default")
 

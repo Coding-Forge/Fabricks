@@ -12,7 +12,7 @@ TOOL = [{
     "type": "function",
     "function": {
         "name": "run_sql",
-        "description": "Run one read-only SQLite SELECT over the call-quality tables.",
+        "description": "Run one read-only SQLite SELECT over the call-quality and Sales tables.",
         "parameters": {
             "type": "object",
             "properties": {"sql": {"type": "string", "description": "A single SQLite SELECT statement."}},
@@ -32,11 +32,14 @@ def schema_text(conn):
 
 def system_prompt(conn):
     return (
-        "You answer questions about Microsoft Teams call-quality records by calling run_sql.\n"
+        "You answer questions about two datasets by calling run_sql: Microsoft Teams call-quality records and "
+        "a Sales table (written by Databricks, read through a Fabric Delta shortcut).\n"
         "Tables (SQLite dialect, SELECT only):\n" + schema_text(conn) + "\n"
         "Notes: CallId joins Calls, Sessions and Participants; SessionId joins Sessions, Segments and MediaStreams. "
         "Jitter and round-trip values are milliseconds; packet loss is a ratio. Many streams have NULL metrics because "
         "Teams did not report them; say so when it affects an answer. Users are pseudonymous hashes. "
+        "Sales(id, region, amount) is synthetic sample data: region is 0-9 and amount is a number between 0 and 1 "
+        "with no currency; it is unrelated to the call tables, so never join them. "
         "State only numbers that appear in query results. If the data cannot answer the question, say so."
     )
 

@@ -179,15 +179,37 @@ The SQL token audience (`FABRIC_SQL_SCOPE`) for Fabric Gov is unverified. Overri
 
 ## 11. Chat over the Lakehouse shortcut (POC)
 
-`chat/` is a local Q&A page that proves a Lakehouse shortcut (`Files/bronze/callrecords`, an ADLS Gen2 shortcut) works as a source for an AI chat app. The server lists and reads the newest version of each Teams call record through the OneLake API at the shortcut path, pseudonymizes it with `scripts/flatten_samples.py`, loads it into in-memory SQLite, and lets Azure OpenAI answer by running read-only `SELECT`s. Each answer shows the SQL, the exact files read, and a **heuristic confidence score** (query success, answer numbers found in the results, source completeness such as NULL stream metrics). The score is not a measured accuracy.
+`chat/` is a local Q&A page that proves Lakehouse shortcuts work as a source for an AI chat app. It reads two shortcuts: `Files/bronze/callrecords` (Teams call records) and the Databricks-written `Tables/dbo/sales` Delta table (section 12). The server lists and reads the newest version of each Teams call record through the OneLake API at the shortcut path, pseudonymizes it with `scripts/flatten_samples.py`, loads it into in-memory SQLite, reads the Sales Delta table the same way (replays `_delta_log` to find the active parquet files, then reads them with `pyarrow`) into a `Sales` table, and lets Azure OpenAI answer by running read-only `SELECT`s. Each answer shows the SQL, the exact files read, and a **heuristic confidence score** (query success, answer numbers found in the results, source completeness such as NULL stream metrics). The score is not a measured accuracy.
 
 ```bash
 .venv/bin/pip install -r chat/requirements.txt
 export FABRIC_TENANT_ID=<tenant> FABRIC_CLIENT_ID=<client> FABRIC_CLIENT_SECRET=<from a secret store>
+export ONELAKE_HOST=<onelake-dfs-host> FABRIC_WORKSPACE=<workspace> FABRIC_LAKEHOUSE=<lakehouse>
+export FABRIC_SQL_SERVER=<sql-endpoint-host> FABRIC_DATABASE=<lakehouse>   # agent only; keep all of these in ~/.bashrc
 export AZURE_OPENAI_ENDPOINT=<endpoint> AZURE_OPENAI_API_KEY=<key>
 .venv/bin/python -m chat.server --check   # reads the shortcut only; no model needed
 .venv/bin/python -m chat.server           # http://127.0.0.1:8000
 .venv/bin/python -m unittest tests.test_chat
 ```
 
-The server binds to localhost only. Optional overrides: `FABRIC_WORKSPACE` (default `CQD`), `FABRIC_LAKEHOUSE` (`cqd_lh`), `ONELAKE_HOST`, `AZURE_OPENAI_DEPLOYMENT`, `CHAT_PORT`. The data is produced by the separate `cqd` ingest pipeline; this repo only reads it.
+The server binds to localhost only. Optional overrides: `SALES_TABLE` (`dbo/sales`), `AZURE_OPENAI_DEPLOYMENT`, `CHAT_PORT`. The call-record data is produced by the separate `cqd` ingest pipeline, and the `sales` table by the Databricks notebook in section 12. The chat app, its tests, and the sample agent all live in this repo, which only reads the data.
+
+## 12. Sales data (Databricks-written Delta table shortcut)
+
+This is the table that proves the Databricks → ADLS → Fabric path. It is synthetic POC data, not customer data. Both `agent/agent.py` (SQL analytics endpoint) and the chat app in section 11 (OneLake read of the shortcut) can answer questions about it, for example "What is the total amount by region?". If the table can't be read (for example a checkpointed Delta log or deletion vectors), the chat app still serves call questions and shows the reason in its source line.
+
+| Item | Value |
+|------|-------|
+| Written by | Databricks notebook (single-node x86 cluster), service principal OAuth, Key Vault-backed secret scope |
+| ADLS location | `abfss://bronze@<storage-account>.dfs.core.usgovcloudapi.net/dbx_poc/sales` (Delta) |
+| Fabric shortcut | ADLS Gen2 shortcut named `sales` under **Tables → dbo** in your lakehouse and workspace, pointing at `/bronze/dbx_poc/sales` |
+| Columns | `id` (bigint), `region` (bigint, 0–9), `amount` (double, 0–1) |
+| Rows | 101,000: an initial 100,000 plus a 1,000-row append (10,100 per region) |
+| Source code | `spark.range(n).selectExpr("id", "id % 10 as region", "rand() as amount")` |
+
+Verified results:
+- Fabric Spark SQL read all 100,000 rows (10,000 per region, about 5,000 total amount each).
+- After a Databricks append of 1,000 rows, Fabric showed 10,100 per region with no refresh or copy.
+- The same lakehouse also holds the `silver_*` and `gold_*` call-record tables, and `Files/bronze/callrecords` (section 11) is a separate shortcut to the call-record JSON.
+
+Shortcut rule: the Tables shortcut must point at the Delta table folder itself (the one containing `_delta_log`). Pointing at the parent `dbx_poc` folder lands in *Unidentified*.

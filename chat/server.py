@@ -1,11 +1,12 @@
-"""Local chat app: asks questions of call records read through the Lakehouse shortcut.
+"""Local chat app: asks questions of call records and the Databricks-written Sales table, both read through Lakehouse shortcuts.
 
-Required environment variables (nothing is hard coded):
+Required environment variables (nothing is hard coded; set them in your shell profile, never in the repo):
   FABRIC_TENANT_ID, FABRIC_CLIENT_ID     service principal with access to the Fabric workspace
   FABRIC_CLIENT_SECRET (or my_secret)    its secret; never commit or print it
+  FABRIC_WORKSPACE, FABRIC_LAKEHOUSE     workspace and lakehouse names that hold the shortcuts
+  ONELAKE_HOST                           OneLake DFS host for your cloud, for example <prefix>-onelake.dfs.fabric.microsoft.us
   AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY
-Optional: AZURE_OPENAI_DEPLOYMENT (gpt-4o), FABRIC_WORKSPACE (CQD), FABRIC_LAKEHOUSE (cqd_lh),
-  ONELAKE_HOST (high-onelake.dfs.fabric.microsoft.us), CHAT_PORT (8000), CHAT_REFRESH_SECONDS (300)
+Optional: AZURE_OPENAI_DEPLOYMENT (gpt-4o), SALES_TABLE (dbo/sales), CHAT_PORT (8000), CHAT_REFRESH_SECONDS (300)
 
 Run: python -m chat.server            (serves http://127.0.0.1:8000)
      python -m chat.server --check    (reads the shortcut and prints what it found; no model needed)
@@ -40,17 +41,25 @@ class State:
             return self.conn, self.provenance
 
 
+def require_env(name):
+    value = os.environ.get(name)
+    if not value:
+        sys.exit(f"Set the {name} environment variable (for example in ~/.bashrc)")
+    return value
+
+
 def build_source():
     secret = os.environ.get("FABRIC_CLIENT_SECRET") or os.environ.get("my_secret")
     if not secret:
         sys.exit("Set FABRIC_CLIENT_SECRET (or my_secret)")
-    tenant, client = os.environ["FABRIC_TENANT_ID"], os.environ["FABRIC_CLIENT_ID"]
+    tenant, client = require_env("FABRIC_TENANT_ID"), require_env("FABRIC_CLIENT_ID")
     return source.ShortcutSource(
-        os.getenv("ONELAKE_HOST", "high-onelake.dfs.fabric.microsoft.us"),
-        os.getenv("FABRIC_WORKSPACE", "CQD"),
-        os.getenv("FABRIC_LAKEHOUSE", "cqd_lh"),
+        require_env("ONELAKE_HOST"),
+        require_env("FABRIC_WORKSPACE"),
+        require_env("FABRIC_LAKEHOUSE"),
         tenant,
         source.make_credential(tenant, client, secret),
+        sales_table=os.getenv("SALES_TABLE", "dbo/sales"),
     )
 
 
