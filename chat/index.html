@@ -3,12 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CQD Q&amp;A</title>
+<title>Chat with your Fabric data</title>
 <style>
   body { font: 15px/1.5 system-ui, sans-serif; margin: 0; background: #f4f5f7; color: #1b1b1b; }
   main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .sub { color: #555; margin-bottom: 16px; }
+  header { background: linear-gradient(135deg, #0f6cbd, #4b3fa3); color: #fff; padding: 28px 24px; border-radius: 12px; margin-bottom: 20px; }
+  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.5px; }
+  .tagline { font-size: 16px; opacity: 0.95; margin: 0 0 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .chips li { background: rgba(255,255,255,0.18); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+  .sub { color: #555; margin-bottom: 16px; font-size: 13px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+  .example { background: #fff; color: #0f6cbd; border: 1px solid #b8d3ee; font-size: 13px; padding: 6px 12px; border-radius: 999px; }
   form { display: flex; gap: 8px; }
   input { flex: 1; padding: 10px 12px; font: inherit; border: 1px solid #b8bcc4; border-radius: 6px; }
   button { padding: 10px 16px; font: inherit; border: 0; border-radius: 6px; background: #0f6cbd; color: #fff; cursor: pointer; }
@@ -31,13 +37,22 @@
 </head>
 <body>
 <main>
-  <h1>CQD call-quality Q&amp;A</h1>
-  <div class="sub" id="source">Source: loading…</div>
+  <header>
+    <h1>Chat with your Fabric data</h1>
+    <p class="tagline">Ask questions in plain English and get answers straight from your lakehouse, with the SQL and source files shown for every response.</p>
+    <ul class="chips">
+      <li>One copy of your data</li>
+      <li>Live through Fabric shortcuts</li>
+      <li>Built in Azure Government</li>
+    </ul>
+  </header>
   <form id="form">
-    <input id="question" maxlength="500" placeholder="e.g. Which platform has the highest average jitter?" autocomplete="off" required>
+    <input id="question" maxlength="500" placeholder="Ask anything about your data…" autocomplete="off" required>
     <button id="ask" type="submit">Ask</button>
     <button id="refresh" type="button" title="Reload from the shortcut">Refresh</button>
   </form>
+  <div class="examples" id="examples"></div>
+  <div class="sub" id="source">Source: loading…</div>
   <div id="log"></div>
 </main>
 <script>
@@ -51,6 +66,19 @@ function el(tag, text, cls) {
   if (text !== undefined) node.textContent = text;
   if (cls) node.className = cls;
   return node;
+}
+
+const EXAMPLES = [
+  "What is the total sales amount by region?",
+  "How many sales records do we have?",
+  "Which platform has the highest average jitter?",
+  "How many calls are there by type?",
+];
+for (const text of EXAMPLES) {
+  const chip = el("button", text, "example");
+  chip.type = "button";
+  chip.addEventListener("click", () => { input.value = text; form.requestSubmit(); });
+  document.getElementById("examples").appendChild(chip);
 }
 
 function sourceLine(src) {
