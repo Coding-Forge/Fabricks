@@ -22,6 +22,7 @@ from pathlib import Path
 from chat import engine, source
 
 PAGE = Path(__file__).with_name("index.html")
+LOGO = Path(__file__).resolve().parent.parent / "images" / "Fabricks.png"
 MAX_BODY = 4096
 MAX_QUESTION = 500
 
@@ -79,6 +80,8 @@ def make_handler(state, client, deployment):
         def do_GET(self):
             if self.path == "/":
                 self._send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
+            elif self.path == "/logo.png" and LOGO.is_file():
+                self._send(200, LOGO.read_bytes(), "image/png")
             else:
                 self._send(404, {"error": "not found"})
 

@@ -7,7 +7,10 @@
 <style>
   body { font: 15px/1.5 system-ui, sans-serif; margin: 0; background: #f4f5f7; color: #1b1b1b; }
   main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
-  header { background: linear-gradient(135deg, #0f6cbd, #4b3fa3); color: #fff; padding: 28px 24px; border-radius: 12px; margin-bottom: 20px; }
+  header { background: linear-gradient(135deg, #0f6cbd, #4b3fa3); color: #fff; padding: 28px 24px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; gap: 24px; }
+  .hero-text { flex: 1; }
+  .logo { width: 150px; height: 150px; border-radius: 12px; background: #fff; flex: none; object-fit: contain; }
+  @media (max-width: 640px) { header { flex-direction: column-reverse; align-items: flex-start; } }
   h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.5px; }
   .tagline { font-size: 16px; opacity: 0.95; margin: 0 0 14px; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -38,6 +41,7 @@
 <body>
 <main>
   <header>
+    <div class="hero-text">
     <h1>Chat with your Fabric data</h1>
     <p class="tagline">Ask questions in plain English and get answers straight from your lakehouse, with the SQL and source files shown for every response.</p>
     <ul class="chips">
@@ -45,6 +49,8 @@
       <li>Live through Fabric shortcuts</li>
       <li>Built in Azure Government</li>
     </ul>
+    </div>
+    <img class="logo" src="/logo.png" alt="Fabricks: Data + AI + Impact, Azure Gov">
   </header>
   <form id="form">
     <input id="question" maxlength="500" placeholder="Ask anything about your data…" autocomplete="off" required>
