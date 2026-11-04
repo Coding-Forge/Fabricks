@@ -22,7 +22,7 @@ from pathlib import Path
 from chat import engine, source
 
 PAGE = Path(__file__).with_name("index.html")
-LOGO = Path(__file__).resolve().parent.parent / "images" / "Fabricks.png"
+LOGO = Path(__file__).resolve().parent.parent / "images" / "FabricksAI.png"
 MAX_BODY = 4096
 MAX_QUESTION = 500
 
