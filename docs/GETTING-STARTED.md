@@ -2,6 +2,8 @@
 
 Chat with your Fabric data: ask plain-English questions and get answers from lakehouse data that Databricks wrote to ADLS Gen2 and Fabric exposes through shortcuts. Every answer shows the SQL that ran, the Delta files read, and a heuristic confidence score.
 
+For a new customer environment or a different dataset, start with the [customer deployment and adaptation guide](CUSTOMER-GUIDE.md). This quick start assumes the original sample schemas and infrastructure are already available.
+
 ## What you need
 
 - Python 3.10 or newer
@@ -27,11 +29,11 @@ set -a; source .env; set +a
 | `AZURE_OPENAI_ENDPOINT` | Yes | For Gov, `https://<resource>.openai.azure.us/` |
 | `AZURE_OPENAI_API_KEY` | Yes | Key for the deployment |
 | `AZURE_OPENAI_DEPLOYMENT` | No | Default `gpt-4o` |
-| `FABRIC_WORKSPACE` | No | Default `CQD` |
-| `FABRIC_LAKEHOUSE` | No | Default `cqd_lh` |
+| `FABRIC_WORKSPACE` | Yes | Your workspace name |
+| `FABRIC_LAKEHOUSE` | Yes | Your lakehouse name, without `.Lakehouse` |
 | `LAKEHOUSE_SCHEMA` | No | Schema folder under `Tables/` that holds the `silver_*` and `gold_*` tables, default `dbo` |
 | `SALES_TABLE` | No | Delta table path under `Tables/`, default `dbo/sales` (use `sales` for a lakehouse without schemas) |
-| `ONELAKE_HOST` | No | Default `high-onelake.dfs.fabric.microsoft.us` |
+| `ONELAKE_HOST` | Yes | Your OneLake DFS hostname; the original Gov POC used `high-onelake.dfs.fabric.microsoft.us` |
 | `CHAT_PORT` | No | Default `8000` |
 | `CHAT_REFRESH_SECONDS` | No | How long loaded data is reused, default `300` |
 
@@ -64,7 +66,7 @@ A healthy `--check` shows `sales_rows` greater than 0 and `"sales_error": null`,
 
 Point `SALES_TABLE` at another Delta table that has a shortcut under `Tables/`. The app reads it by replaying `_delta_log` and loading the active parquet files into memory, so it suits small tables. Limitations:
 
-- Tables whose log has been checkpointed (after roughly 10 commits) are reported as an error, not read partially.
+- Tables requiring checkpoint replay because consecutive JSON commits from version 0 are no longer available are reported as an error, not read partially.
 - Tables using deletion vectors are not supported.
 - The loaded table is named `Sales` and the model is told about the sales columns only; adjust `system_prompt` in `chat/engine.py` for a different schema.
 

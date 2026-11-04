@@ -7,6 +7,8 @@
 **Proof-of-Concept Working Document** — DRAFT for customer review
 
 > **Want to run it?** See [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) and [.env.example](.env.example).
+>
+> **Deploy with your own data:** Follow the [customer deployment and adaptation guide](docs/CUSTOMER-GUIDE.md) for resource setup, identities, connections, schema changes, and validation.
 
 ## 1. Objective
 
